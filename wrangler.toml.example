@@ -1,0 +1,18 @@
+# Copy to `wrangler.toml` and fill in your own values, then deploy with:
+#   npx wrangler pages deploy
+#
+# The session signing secret is NOT stored here — set it once with:
+#   npx wrangler pages secret put SESSION_SECRET --project-name markchart
+
+name = "markchart"
+pages_build_output_dir = "dist"
+compatibility_date = "2024-11-06"
+
+[vars]
+# Public Google OAuth Client ID (same value as VITE_GOOGLE_CLIENT_ID).
+GOOGLE_CLIENT_ID = "your-google-oauth-client-id.apps.googleusercontent.com"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "markchart-db"
+database_id = "your-d1-database-id"

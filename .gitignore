@@ -6,3 +6,12 @@ coverage/
 *.log
 .env*
 !.env.example
+
+# Local Cloudflare config & state (contains project-specific IDs) — use the
+# committed *.example templates instead.
+wrangler.toml
+.dev.vars
+.wrangler/
+
+# Never commit OAuth client secret files
+client_secret*.json

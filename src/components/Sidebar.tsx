@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
-import { 
-  Plus, 
-  Trash, 
-  Pencil, 
-  Check, 
-  X, 
+import {
+  Plus,
+  Trash,
+  Pencil,
+  Check,
+  X,
   CloudArrowUp,
+  CloudCheck,
+  Cloud,
   Folder,
   CaretLeft,
+  CircleNotch,
   TreeStructure,
   GitFork,
   Cpu,
@@ -48,6 +51,12 @@ interface SidebarProps {
   onNewFlow: () => void;
   onSaveToCloud: () => void;
   onCollapse: () => void;
+  // Cloud account (signed-in) state
+  isSignedIn: boolean;
+  savingCloud: boolean;
+  cloudFlows: Flow[];
+  onLoadCloudFlow: (id: string) => void;
+  onDeleteCloudFlow: (id: string) => void;
 }
 
 export default function Sidebar({
@@ -59,6 +68,11 @@ export default function Sidebar({
   onNewFlow,
   onSaveToCloud,
   onCollapse,
+  isSignedIn,
+  savingCloud,
+  cloudFlows,
+  onLoadCloudFlow,
+  onDeleteCloudFlow,
 }: SidebarProps) {
   // Editing individual flow titles in history
   const [editingFlowId, setEditingFlowId] = useState<string | null>(null);
@@ -115,6 +129,74 @@ export default function Sidebar({
 
         {/* History List */}
         <div className="flex-1 overflow-y-auto px-5 pb-4 space-y-2.5 min-h-0">
+          {/* CLOUD ACCOUNT FLOWS (signed in) */}
+          {isSignedIn && (
+            <div className="space-y-2.5">
+              <div className="flex items-center gap-1.5 pt-0.5">
+                <Cloud size={13} weight="bold" className="text-indigo-500" />
+                <h3 className="text-[10px] uppercase font-bold tracking-wider text-indigo-500 dark:text-indigo-400">
+                  Cloud Account
+                </h3>
+              </div>
+
+              {cloudFlows.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-indigo-200 dark:border-indigo-900/50 bg-indigo-50/40 dark:bg-indigo-950/20 py-4 px-3 text-center">
+                  <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-normal">
+                    No cloud flows yet. Use <span className="font-bold">Save to Cloud</span> below to sync this flow to your account.
+                  </p>
+                </div>
+              ) : (
+                cloudFlows.map((flow) => {
+                  const isCurrent = flow.id === currentFlowId;
+                  const IconComponent = iconMap[flow.icon || 'TreeStructure'] || TreeStructure;
+                  return (
+                    <div
+                      key={`cloud_${flow.id}`}
+                      onClick={() => onLoadCloudFlow(flow.id)}
+                      className={`group relative rounded-xl border p-3 transition-all cursor-pointer ${
+                        isCurrent
+                          ? 'bg-indigo-50/60 border-indigo-200 dark:border-indigo-500/30 dark:bg-indigo-950/30 ring-1 ring-indigo-300/30'
+                          : 'bg-zinc-100 hover:bg-white dark:bg-zinc-900/30 dark:hover:bg-zinc-900 border-transparent hover:border-indigo-200/60 dark:hover:border-indigo-900/50'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <IconComponent size={14} weight="bold" className="text-indigo-500" />
+                          <span className="text-xs font-bold leading-tight truncate max-w-[120px] text-zinc-800 dark:text-zinc-200">
+                            {flow.title || 'Untitled Flow'}
+                          </span>
+                          <CloudCheck size={12} weight="bold" className="text-indigo-400 shrink-0" />
+                        </div>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onDeleteCloudFlow(flow.id);
+                          }}
+                          className="p-1 opacity-0 group-hover:opacity-100 hover:bg-rose-500/10 rounded text-zinc-400 hover:text-rose-500 dark:hover:bg-rose-500/20 transition-all"
+                          title="Remove from cloud account"
+                        >
+                          <Trash size={11} />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] font-bold tracking-wide text-zinc-400 dark:text-zinc-500 uppercase mt-1.5">
+                        <span>{flow.nodes?.length || 0} nodes</span>
+                        <span>•</span>
+                        <span>{flow.edges?.length || 0} edges</span>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+
+              <div className="flex items-center gap-1.5 pt-2">
+                <Folder size={13} className="text-zinc-400" />
+                <h3 className="text-[10px] uppercase font-bold tracking-wider text-zinc-500 dark:text-zinc-400">
+                  On This Device
+                </h3>
+              </div>
+            </div>
+          )}
+
           {savedFlows.length === 0 ? (
             <div className="flex flex-col items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl py-8 px-4 text-center">
               <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500 mb-1">No saved flows.</span>
@@ -223,10 +305,20 @@ export default function Sidebar({
       <div className="p-4 border-t border-zinc-200 bg-zinc-100/50 dark:border-zinc-800 dark:bg-zinc-900/50 shrink-0">
         <button
           onClick={onSaveToCloud}
-          className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-semibold transition-all duration-150 active:scale-95 shadow-sm"
+          disabled={savingCloud}
+          className="w-full flex items-center justify-center gap-2 py-2 px-3 bg-zinc-900 dark:bg-zinc-100 hover:bg-zinc-800 dark:hover:bg-zinc-200 text-white dark:text-zinc-950 rounded-xl text-xs font-semibold transition-all duration-150 active:scale-95 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          <CloudArrowUp size={15} weight="bold" />
-          <span>Save to Cloud</span>
+          {savingCloud ? (
+            <>
+              <CircleNotch size={15} weight="bold" className="animate-spin" />
+              <span>Saving…</span>
+            </>
+          ) : (
+            <>
+              <CloudArrowUp size={15} weight="bold" />
+              <span>{isSignedIn ? 'Save to Cloud' : 'Sign in to Save to Cloud'}</span>
+            </>
+          )}
         </button>
       </div>
     </aside>

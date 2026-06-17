@@ -32,6 +32,8 @@ import { CornersIn, CaretLeft, CaretRight } from '@phosphor-icons/react';
 import { Flow, NodeType, Node as ModelNode, Edge as ModelEdge } from './types';
 import { validate } from './lib/validate';
 import { toMarkdown, toMermaid } from './lib/exporter';
+import { useAuth } from './lib/auth';
+import { fetchCloudFlows, saveCloudFlow, deleteCloudFlow } from './lib/api';
 
 // Custom node and edge type registrations
 import CustomNode from './components/CustomNode';
@@ -61,6 +63,11 @@ function FlowEditor() {
 
   // Saved flows cache list
   const [savedFlows, setSavedFlows] = useState<Flow[]>([]);
+
+  // Authenticated cloud flows
+  const { user } = useAuth();
+  const [cloudFlows, setCloudFlows] = useState<Flow[]>([]);
+  const [savingCloud, setSavingCloud] = useState<boolean>(false);
 
   // Toast feedback state
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'info' | 'warning' } | null>(null);
@@ -239,6 +246,64 @@ function FlowEditor() {
     localStorage.setItem('markchart_flows', JSON.stringify(flowsList));
     setSavedFlows(flowsList);
   }, [currentFlowModel, currentFlowId]);
+
+  // Load cloud flows whenever the user signs in; clear them on sign-out.
+  useEffect(() => {
+    if (!user) {
+      setCloudFlows([]);
+      return;
+    }
+    fetchCloudFlows()
+      .then(setCloudFlows)
+      .catch((err) => console.error('Failed to load cloud flows:', err));
+  }, [user]);
+
+  // Save the active flow to the signed-in user's cloud account.
+  const handleSaveToCloud = useCallback(async () => {
+    if (!user) {
+      triggerToast('Sign in with Google to save this flow to the cloud.', 'warning');
+      return;
+    }
+    try {
+      setSavingCloud(true);
+      await saveCloudFlow(currentFlowModel);
+      const list = await fetchCloudFlows();
+      setCloudFlows(list);
+      triggerToast('Saved to your cloud account!', 'success');
+    } catch (err) {
+      console.error(err);
+      triggerToast('Could not save to cloud. Please try again.', 'warning');
+    } finally {
+      setSavingCloud(false);
+    }
+  }, [user, currentFlowModel, triggerToast]);
+
+  // Load a cloud flow onto the canvas.
+  const handleLoadCloudFlow = useCallback(
+    (id: string) => {
+      const flow = cloudFlows.find((f) => f.id === id);
+      if (flow) {
+        loadFlow(flow);
+        triggerToast('Loaded flow from your cloud account.', 'info');
+      }
+    },
+    [cloudFlows, loadFlow, triggerToast]
+  );
+
+  // Delete a cloud flow from the user's account.
+  const handleDeleteCloudFlow = useCallback(
+    async (id: string) => {
+      try {
+        await deleteCloudFlow(id);
+        setCloudFlows((prev) => prev.filter((f) => f.id !== id));
+        triggerToast('Removed flow from your cloud account.', 'info');
+      } catch (err) {
+        console.error(err);
+        triggerToast('Could not delete the cloud flow.', 'warning');
+      }
+    },
+    [triggerToast]
+  );
 
   // Callback to propagate and write node label changes from CustomNode
   const handleNodeLabelChange = useCallback((id: string, newLabel: string) => {
@@ -506,7 +571,6 @@ function FlowEditor() {
           onTitleChange={handleTitleChange}
           onDescriptionChange={handleDescriptionChange}
           onIconChange={handleIconChange}
-          onSignInClick={() => triggerToast('Sign in coming soon!', 'info')}
           darkMode={darkMode}
           onToggleDarkMode={() => setDarkMode(!darkMode)}
           isFocusMode={isFocusMode}
@@ -528,7 +592,12 @@ function FlowEditor() {
             onDeleteFlow={handleDeleteFlow}
             onRenameFlow={handleRenameFlow}
             onNewFlow={handleNewFlow}
-            onSaveToCloud={() => triggerToast('Please sign in to save this flow to the cloud.', 'warning')}
+            onSaveToCloud={handleSaveToCloud}
+            isSignedIn={!!user}
+            savingCloud={savingCloud}
+            cloudFlows={cloudFlows}
+            onLoadCloudFlow={handleLoadCloudFlow}
+            onDeleteCloudFlow={handleDeleteCloudFlow}
             onCollapse={() => {
               setLeftCollapsed(true);
               triggerToast('Collapsed left sidebar', 'info');
