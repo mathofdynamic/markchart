@@ -1,0 +1,163 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
+@import "@xyflow/react/dist/style.css";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+/* Base style enhancements */
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-zinc-50);
+}
+.dark body {
+  background-color: var(--color-zinc-950);
+}
+
+/* Custom Scrollbar Styles to look like premium editor */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.2);
+}
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* React Flow custom visual adjustments to fit our developer aesthetic */
+.react-flow__background {
+  opacity: 0.45;
+}
+.dark .react-flow__background {
+  opacity: 0.45;
+}
+.react-flow__minimap {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 0, 0, 0.05) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+  background-color: white !important;
+}
+.dark .react-flow__minimap {
+  border: 1px solid rgba(255, 255, 255, 0.05) !important;
+  background-color: #0c0c0e !important;
+}
+.react-flow__controls {
+  border-radius: 10px !important;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03) !important;
+  border: 1px solid rgba(0, 0, 0, 0.06) !important;
+  background-color: white !important;
+}
+.dark .react-flow__controls {
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background-color: #0c0c0e !important;
+}
+.react-flow__controls-button {
+  border-bottom: 1px solid rgba(0, 0, 0, 0.04) !important;
+  background-color: transparent !important;
+  color: #555 !important;
+}
+.dark .react-flow__controls-button {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  color: #aaa !important;
+}
+
+/* Markdown typography rendering blocks */
+.markdown-body h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  margin-top: 1.5rem;
+  margin-bottom: 0.5rem;
+  color: #18181b;
+  letter-spacing: -0.015em;
+}
+.dark .markdown-body h2 {
+  color: #fafafa;
+}
+.markdown-body p {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #52525b;
+  margin-bottom: 0.75rem;
+}
+.dark .markdown-body p {
+  color: #a1a1aa;
+}
+.markdown-body ol {
+  list-style-type: decimal;
+  padding-left: 1.25rem;
+  margin-top: 0.75rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+.markdown-body ul {
+  list-style-type: none;
+  padding-left: 1rem;
+  margin-top: 0.35rem;
+  margin-bottom: 0.35rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+.markdown-body li {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: #27272a;
+}
+.dark .markdown-body li {
+  color: #e4e4e7;
+}
+.markdown-body strong {
+  font-weight: 700;
+  color: #09090b;
+}
+.dark .markdown-body strong {
+  color: #ffffff;
+}
+
+/* Slide in animation for toast banners */
+@keyframes slideIn {
+  from {
+    transform: translateY(1rem);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-slide-in {
+  animation: slideIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Smoothly animate node movements when cards push/shift apart */
+.react-flow__node {
+  transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  will-change: transform;
+}
+
+/* Disable transition during dragging to guarantee zero lag dragging controls */
+.react-flow__node.dragging,
+.react-flow__node:active,
+.react-flow__node[data-dragging="true"] {
+  transition: none !important;
+}
+

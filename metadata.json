@@ -1,0 +1,6 @@
+{
+  "name": "MarkChart",
+  "description": "Flowchart editor that exports clean AI-friendly Markdown and Mermaid text formats.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
