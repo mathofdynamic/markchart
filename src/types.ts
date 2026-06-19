@@ -27,3 +27,28 @@ export interface Flow {
   nodes: Node[];
   edges: Edge[];
 }
+
+/**
+ * Logical graph returned by the AI generation endpoint. It mirrors the Flow
+ * model but carries no positions and uses the model's own temporary node ids
+ * ("n1", "n2", …); the client assigns real ids and positions via auto-layout.
+ */
+export interface GeneratedNode {
+  id: string;
+  type: string;
+  label: string;
+  description?: string;
+}
+
+export interface GeneratedEdge {
+  source: string;
+  target: string;
+  label?: string;
+}
+
+export interface GeneratedGraph {
+  title?: string;
+  description?: string;
+  nodes: GeneratedNode[];
+  edges: GeneratedEdge[];
+}

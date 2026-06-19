@@ -26,12 +26,15 @@ import Sidebar from './components/Sidebar';
 import OutputPanel from './components/OutputPanel';
 import Toast from './components/Toast';
 import NodeToolbar from './components/NodeToolbar';
+import AIGenerateModal from './components/AIGenerateModal';
+import SettingsModal from './components/SettingsModal';
 import { CornersIn, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
 // Core domain logic
-import { Flow, NodeType, Node as ModelNode, Edge as ModelEdge } from './types';
+import { Flow, NodeType, Node as ModelNode, Edge as ModelEdge, GeneratedGraph } from './types';
 import { validate } from './lib/validate';
 import { toMarkdown, toMermaid } from './lib/exporter';
+import { layoutGeneratedFlow } from './lib/layout';
 import { useAuth } from './lib/auth';
 import { fetchCloudFlows, saveCloudFlow, deleteCloudFlow } from './lib/api';
 
@@ -74,6 +77,12 @@ function FlowEditor() {
 
   // Focus / Full-screen mode state
   const [isFocusMode, setIsFocusMode] = useState<boolean>(false);
+
+  // AI generation modal state
+  const [aiModalOpen, setAiModalOpen] = useState<boolean>(false);
+
+  // Settings / API keys modal state
+  const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
 
   // Collapsible panel states
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(true);
@@ -439,6 +448,58 @@ function FlowEditor() {
     triggerToast('Created a brand-new flow space!', 'success');
   }, [loadFlow, triggerToast]);
 
+  // Clear every node/edge from the current flow (autosave persists the empty state).
+  const handleClearCanvas = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setEditingNodeId(null);
+    triggerToast('Canvas cleared.', 'info');
+  }, [setNodes, setEdges, triggerToast]);
+
+  // Open the AI modal — but only for signed-in users (the endpoint is gated).
+  const handleOpenAIGenerate = useCallback(() => {
+    if (!user) {
+      triggerToast('Sign in with Google to generate flows with AI.', 'warning');
+      return;
+    }
+    setAiModalOpen(true);
+  }, [user, triggerToast]);
+
+  // Apply an AI-generated graph: auto-layout it, save as a new flow, and load it.
+  const handleApplyGeneratedFlow = useCallback(
+    (graph: GeneratedGraph) => {
+      const { nodes: laidOutNodes, edges: laidOutEdges } = layoutGeneratedFlow(graph);
+
+      const newId = `flow_${Date.now()}`;
+      const newFlow: Flow = {
+        id: newId,
+        title: graph.title?.trim() || 'AI Generated Flow',
+        description: graph.description?.trim() || '',
+        icon: 'FlowArrow',
+        nodes: laidOutNodes,
+        edges: laidOutEdges,
+      };
+
+      const storedStr = localStorage.getItem('markchart_flows');
+      let list: Flow[] = [];
+      if (storedStr) {
+        try {
+          list = JSON.parse(storedStr);
+        } catch {
+          // ignore
+        }
+      }
+      list.unshift(newFlow);
+      localStorage.setItem('markchart_flows', JSON.stringify(list));
+      setSavedFlows(list);
+
+      loadFlow(newFlow);
+      setAiModalOpen(false);
+      triggerToast(`AI built "${newFlow.title}" — ${laidOutNodes.length} nodes.`, 'success');
+    },
+    [loadFlow, triggerToast]
+  );
+
   // Flowchart title edit
   const handleTitleChange = useCallback((newTitle: string) => {
     setTitle(newTitle);
@@ -575,7 +636,22 @@ function FlowEditor() {
           onToggleDarkMode={() => setDarkMode(!darkMode)}
           isFocusMode={isFocusMode}
           onToggleFocusMode={() => setIsFocusMode(true)}
+          onOpenAIGenerate={handleOpenAIGenerate}
+          onOpenSettings={() => setSettingsOpen(true)}
         />
+      )}
+
+      {/* AI FLOW GENERATION MODAL */}
+      {aiModalOpen && (
+        <AIGenerateModal
+          onClose={() => setAiModalOpen(false)}
+          onApply={handleApplyGeneratedFlow}
+        />
+      )}
+
+      {/* SETTINGS / API KEYS MODAL */}
+      {settingsOpen && (
+        <SettingsModal onClose={() => setSettingsOpen(false)} onToast={triggerToast} />
       )}
 
       {/* 2. MAIN WORKSPACE PANELS */}
@@ -609,7 +685,11 @@ function FlowEditor() {
         <main className="flex-1 relative h-full bg-zinc-100 dark:bg-zinc-950 flex flex-col">
           {/* FLOATING PALETTE TOOLBAR */}
           {!isFocusMode && (
-            <NodeToolbar onAddNodeDirectly={(type) => addNodeDirectly(type)} />
+            <NodeToolbar
+              onAddNodeDirectly={(type) => addNodeDirectly(type)}
+              onClearCanvas={handleClearCanvas}
+              canClear={nodes.length > 0 || edges.length > 0}
+            />
           )}
 
           {/* FLOATING ACTION PILL FOR LEFT COLLAPSE (IF COLLAPSED) */}

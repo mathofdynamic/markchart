@@ -16,3 +16,7 @@ GOOGLE_CLIENT_ID = "your-google-oauth-client-id.apps.googleusercontent.com"
 binding = "DB"
 database_name = "markchart-db"
 database_id = "your-d1-database-id"
+
+# Workers AI — powers the "Generate with AI" flow builder (functions/api/ai/generate.ts).
+[ai]
+binding = "AI"

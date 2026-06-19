@@ -1,21 +1,44 @@
-import React from 'react';
-import { 
-  Play, 
-  Stop, 
-  Gear, 
-  GitBranch, 
-  ArrowsClockwise, 
-  Terminal, 
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Play,
+  Stop,
+  Gear,
+  GitBranch,
+  ArrowsClockwise,
+  Terminal,
   Note as NoteIcon,
-  DotsSixVertical
+  DotsSixVertical,
+  Trash
 } from '@phosphor-icons/react';
 import { NodeType } from '../types';
 
 interface NodeToolbarProps {
   onAddNodeDirectly: (type: NodeType) => void;
+  onClearCanvas: () => void;
+  canClear: boolean;
 }
 
-export default function NodeToolbar({ onAddNodeDirectly }: NodeToolbarProps) {
+export default function NodeToolbar({ onAddNodeDirectly, onClearCanvas, canClear }: NodeToolbarProps) {
+  // Two-click confirm so the canvas is never wiped by an accidental tap.
+  const [confirming, setConfirming] = useState(false);
+  const confirmTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+    };
+  }, []);
+
+  const handleClearClick = () => {
+    if (confirming) {
+      if (confirmTimer.current) clearTimeout(confirmTimer.current);
+      setConfirming(false);
+      onClearCanvas();
+    } else {
+      setConfirming(true);
+      confirmTimer.current = setTimeout(() => setConfirming(false), 3000);
+    }
+  };
   const paletteItems: {
     type: NodeType;
     label: string;
@@ -135,6 +158,27 @@ export default function NodeToolbar({ onAddNodeDirectly }: NodeToolbarProps) {
             </div>
           );
         })}
+      </div>
+
+      {/* Clear canvas — two-click confirm, separated from the additive palette. */}
+      <div className="flex items-center shrink-0 border-l border-zinc-200 dark:border-zinc-800/80 pl-3 ml-1">
+        <button
+          onClick={handleClearClick}
+          disabled={!canClear && !confirming}
+          className={`group flex flex-col items-center justify-center rounded-xl border transition-all duration-150 select-none hover:-translate-y-[1px] active:scale-[0.98] w-20 min-w-[80px] h-14 shrink-0 py-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${
+            confirming
+              ? 'bg-rose-500 border-rose-500 text-white shadow-[0_4px_10px_-3px_rgba(244,63,94,0.5)]'
+              : 'bg-rose-50/50 hover:bg-rose-50 dark:bg-rose-950/10 dark:hover:bg-rose-950/20 border-rose-200/60 dark:border-rose-900/40 text-rose-900 dark:text-rose-300'
+          }`}
+          title={confirming ? 'Click again to clear the whole canvas' : 'Clear the entire canvas'}
+        >
+          <div className="flex items-center justify-center h-6 w-6 transition-transform group-hover:scale-105">
+            <Trash size={18} weight="bold" className={confirming ? 'text-white' : 'text-rose-500'} />
+          </div>
+          <span className="text-[10px] font-bold leading-none mt-1 text-center truncate w-full px-1">
+            {confirming ? 'Confirm?' : 'Clear'}
+          </span>
+        </button>
       </div>
     </div>
   );

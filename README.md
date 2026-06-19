@@ -31,9 +31,15 @@ the model understands. Paste it into any chat. Done.
 
 ## Features
 
+- ✨ **Generate with AI** — describe a process in plain English ("retry the payment 3 times, then
+  cancel") and **Cloudflare Workers AI** builds the whole flowchart for you, auto-laid-out and
+  ready to edit. A deterministic repair pass keeps the output structurally sane no matter what the
+  model dreams up.
 - 🎨 **Visual editor** — drag nodes, draw arrows, label your branches. Built on React Flow.
 - 🧠 **Two AI-friendly exports** — decision-logic **Markdown** *and* **Mermaid**, generated
   live as you build. Copy either, or download the `.md`.
+- 🔌 **REST API** — generate a flow, save it, and pull its Markdown/Mermaid from your own scripts
+  with a personal API key. The whole app, headless. (See [API](#api).)
 - 🧩 **Seven honest node types** — Start, End, Action, Decision, Loop, Input/Output, Note.
   Few enough to stay unambiguous; enough to describe real logic.
 - ✅ **Validation nudges** — warns about disconnected nodes, decisions missing branches,
@@ -73,9 +79,11 @@ not like a riddle.
 | Layer | What |
 |-------|------|
 | **Frontend** | React 19 · TypeScript · Vite · Tailwind · [@xyflow/react](https://reactflow.dev) · react-markdown |
+| **AI** | Cloudflare **Workers AI** — a Gemma-family instruct model, prompt-constrained + repaired into clean JSON |
 | **Auth** | Google Identity Services (ID token → verified server-side). No client secret. Ever. |
+| **API** | Personal keys (SHA-256-hashed at rest), `Bearer` auth on `/api/v1/*` |
 | **Backend** | Cloudflare **Pages Functions** (the `functions/` directory) |
-| **Database** | Cloudflare **D1** (SQLite) — one row per saved flow, scoped to your Google account |
+| **Database** | Cloudflare **D1** (SQLite) — flows + API keys, scoped to your Google account |
 | **Sessions** | HttpOnly, HMAC-signed cookie. No tokens lying around in `localStorage`. |
 | **Hosting** | Cloudflare Pages |
 
@@ -84,10 +92,34 @@ not like a riddle.
 ```
 Browser ──(Google ID token)──▶ /api/auth/login ──▶ verify ──▶ set session cookie
    │                                                              │
-   └──(cookie)──▶ /api/flows  ◀── Pages Functions ──▶  D1 (your flows)
+   ├──(cookie)──▶ /api/flows ─────┐                              │
+   ├──(cookie)──▶ /api/ai/generate ┤── Pages Functions ──┬──▶ Workers AI (Gemma)
+   └──(Bearer key)──▶ /api/v1/* ───┘                      └──▶ D1 (flows + keys)
 ```
 
 The whole thing is a static SPA plus a handful of edge functions. No servers to babysit.
+
+## API
+
+Generate a key in the app (sign in → **⚙️ Settings → API Keys**), then drive MarkChart from anywhere.
+Authenticate with `Authorization: Bearer <your-key>`.
+
+| Method & path | Does |
+|---|---|
+| `POST /api/v1/generate` | `{ "prompt": "…", "save": false }` → `{ flow, markdown, mermaid, saved }` |
+| `GET /api/v1/flows` | List your saved flows |
+| `POST /api/v1/flows` | Create/update a flow (`{ title, nodes, edges, … }`) |
+| `GET /api/v1/flows/:id` | One flow + its Markdown & Mermaid (add `?format=markdown` or `?format=mermaid` for raw text) |
+| `DELETE /api/v1/flows/:id` | Delete a flow |
+
+```bash
+curl -X POST https://markchart.pages.dev/api/v1/generate \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"When an order arrives, check stock; if available, charge and ship; otherwise notify the customer."}'
+```
+
+Keys are stored only as a SHA-256 hash — the plaintext is shown to you exactly once, at creation.
 
 ## Running it locally
 
@@ -131,6 +163,10 @@ This project was a beautiful collaboration between a human with a great idea and
 did the typing, the architecture, the deployment, the OAuth debugging, the favicon, *this very
 README*, and — at one point — patiently explained that sign-in kept failing because the human
 was editing the wrong Google Cloud project entirely. 🙃
+
+It also picked the AI model the hard way: shipped one that turned out to be **deprecated**, discovered
+the shiny new Gemma 4 was a reasoning model that thinks for a full minute and times out, and finally
+settled on a Gemma-family model that's both alive *and* fast. Three models tried, one survived.
 
 - **The human:** had the vision, picked the colors, supplied the credentials (occasionally the
   *right* ones), and clicked "Save."

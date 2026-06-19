@@ -7,6 +7,15 @@ export interface Env {
   DB: D1Database;
   SESSION_SECRET: string;
   GOOGLE_CLIENT_ID: string;
+  // Workers AI binding (configured as `[ai] binding = "AI"` in wrangler.toml).
+  // Typed structurally so we don't depend on @cloudflare/workers-types' `Ai`.
+  AI: {
+    run: (
+      model: string,
+      inputs: Record<string, unknown>,
+      options?: Record<string, unknown>,
+    ) => Promise<any>;
+  };
 }
 
 export interface SessionUser {
@@ -112,4 +121,53 @@ export function json(data: unknown, init: ResponseInit = {}): Response {
     ...init,
     headers: { 'Content-Type': 'application/json', ...(init.headers || {}) },
   });
+}
+
+// ---------------------------------------------------------------------------
+// API keys — for programmatic access to /api/v1/* with `Authorization: Bearer`.
+// ---------------------------------------------------------------------------
+
+export async function sha256Hex(input: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', encoder.encode(input));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Generate a fresh secret API key, e.g. "mk_live_xK3...". */
+export function generateApiKey(): string {
+  const bytes = new Uint8Array(24);
+  crypto.getRandomValues(bytes);
+  let str = '';
+  for (let i = 0; i < bytes.length; i++) str += String.fromCharCode(bytes[i]);
+  const body = btoa(str).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  return `mk_live_${body}`;
+}
+
+/**
+ * Resolve the user behind an `Authorization: Bearer <key>` header by matching
+ * the key's SHA-256 hash against the api_keys table. Returns the user's sub, or
+ * null if missing/invalid. Updates last_used_at on success (best-effort).
+ */
+export async function getApiUser(req: Request, env: Env): Promise<{ sub: string } | null> {
+  const auth = req.headers.get('Authorization') || '';
+  const match = auth.match(/^Bearer\s+(.+)$/i);
+  if (!match) return null;
+
+  const key = match[1].trim();
+  if (!key) return null;
+
+  const hash = await sha256Hex(key);
+  const row = await env.DB.prepare('SELECT user_sub FROM api_keys WHERE key_hash = ?')
+    .bind(hash)
+    .first<{ user_sub: string }>();
+  if (!row) return null;
+
+  try {
+    await env.DB.prepare('UPDATE api_keys SET last_used_at = ? WHERE key_hash = ?')
+      .bind(Date.now(), hash)
+      .run();
+  } catch {
+    // non-fatal
+  }
+
+  return { sub: row.user_sub };
 }

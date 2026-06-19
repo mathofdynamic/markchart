@@ -18,7 +18,8 @@ import {
   Database,
   PlugsConnected,
   Code,
-  SignOut
+  SignOut,
+  Sparkle
 } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 
@@ -63,6 +64,8 @@ interface TopBarProps {
   onToggleDarkMode: () => void;
   isFocusMode?: boolean;
   onToggleFocusMode?: () => void;
+  onOpenAIGenerate?: () => void;
+  onOpenSettings?: () => void;
 }
 
 export default function TopBar({
@@ -76,6 +79,8 @@ export default function TopBar({
   onToggleDarkMode,
   isFocusMode = false,
   onToggleFocusMode,
+  onOpenAIGenerate,
+  onOpenSettings,
 }: TopBarProps) {
   const { user, ready, loading, renderButton, signOut } = useAuth();
   const googleBtnRef = useRef<HTMLDivElement>(null);
@@ -268,6 +273,22 @@ export default function TopBar({
 
       {/* Control Buttons (Google Login + Dark Mode Switch) */}
       <div className="flex items-center gap-3">
+        {/* AI flow generation — styled to match the bar's other pill controls. */}
+        {onOpenAIGenerate && (
+          <button
+            onClick={onOpenAIGenerate}
+            className="group flex items-center gap-2 rounded-full pl-2.5 pr-3.5 py-2 text-xs font-semibold border border-zinc-200 bg-white text-zinc-700 hover:text-indigo-600 hover:bg-zinc-50 hover:border-indigo-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:text-indigo-400 dark:hover:bg-zinc-800/60 dark:hover:border-indigo-900/50 shadow-sm transition-all duration-150 active:scale-95 cursor-pointer"
+            title="Generate a flowchart from a description with AI"
+          >
+            <Sparkle size={15} weight="fill" className="text-indigo-500 transition-transform group-hover:scale-110" />
+            <span className="hidden sm:inline">Generate with AI</span>
+            <span className="sm:hidden">AI</span>
+          </button>
+        )}
+
+        {/* Separator */}
+        <div className="h-6 w-[1px] bg-zinc-200 dark:bg-zinc-800"></div>
+
         {/* Auth: signed-in user chip, or Google sign-in button.
             The GIS container is always mounted (toggled with `hidden`) so React
             never unmounts GIS-injected DOM. */}
@@ -300,6 +321,15 @@ export default function TopBar({
                   {user.name || user.email}
                 </span>
               </div>
+              {onOpenSettings && (
+                <button
+                  onClick={onOpenSettings}
+                  className="rounded-full p-2.5 text-zinc-500 hover:text-indigo-600 hover:bg-indigo-500/10 dark:text-zinc-400 dark:hover:text-indigo-400 transition-all duration-150 active:scale-90 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm cursor-pointer"
+                  title="API keys & settings"
+                >
+                  <Gear size={15} weight="bold" />
+                </button>
+              )}
               <button
                 onClick={signOut}
                 className="rounded-full p-2.5 text-zinc-500 hover:text-rose-500 hover:bg-rose-500/10 dark:text-zinc-400 transition-all duration-150 active:scale-90 border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm cursor-pointer"
