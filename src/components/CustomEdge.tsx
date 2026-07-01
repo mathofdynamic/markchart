@@ -6,7 +6,8 @@ import { PencilSimple } from '@phosphor-icons/react';
 export type CustomEdgeProps = EdgeProps<
   Edge<{
     label: string;
-    onLabelChange: (id: string, newLabel: string) => void;
+    readOnly?: boolean;
+    onLabelChange?: (id: string, newLabel: string) => void;
   }>
 >;
 
@@ -47,6 +48,7 @@ export default function CustomEdge({
   }, [isEditing]);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
+    if (data?.readOnly) return;
     e.stopPropagation();
     setIsEditing(true);
   };
@@ -69,6 +71,29 @@ export default function CustomEdge({
       setValue(data?.label || '');
     }
   };
+
+  // Read-only (shared view): render just the line, plus a static label pill if present.
+  if (data?.readOnly) {
+    return (
+      <>
+        <BaseEdge path={edgePath} markerEnd={markerEnd} style={{ strokeWidth: 2, ...(style as React.CSSProperties) }} />
+        {data.label && (
+          <EdgeLabelRenderer>
+            <div
+              style={{
+                position: 'absolute',
+                transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+                pointerEvents: 'none',
+              }}
+              className="nodrag nopan flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide border bg-zinc-900 border-zinc-800 text-zinc-50 dark:bg-zinc-100 dark:border-white dark:text-zinc-900 shadow-md"
+            >
+              {data.label}
+            </div>
+          </EdgeLabelRenderer>
+        )}
+      </>
+    );
+  }
 
   return (
     <>

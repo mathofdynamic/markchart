@@ -28,6 +28,9 @@ import Toast from './components/Toast';
 import NodeToolbar from './components/NodeToolbar';
 import AIGenerateModal from './components/AIGenerateModal';
 import SettingsModal from './components/SettingsModal';
+import ImportModal from './components/ImportModal';
+import ShareModal from './components/ShareModal';
+import ShareViewer from './components/ShareViewer';
 import { CornersIn, CaretLeft, CaretRight } from '@phosphor-icons/react';
 
 // Core domain logic
@@ -35,6 +38,7 @@ import { Flow, NodeType, Node as ModelNode, Edge as ModelEdge, GeneratedGraph } 
 import { validate } from './lib/validate';
 import { toMarkdown, toMermaid } from './lib/exporter';
 import { layoutGeneratedFlow } from './lib/layout';
+import { addFlowPrompt } from './lib/promptHistory';
 import { useAuth } from './lib/auth';
 import { fetchCloudFlows, saveCloudFlow, deleteCloudFlow } from './lib/api';
 
@@ -83,6 +87,12 @@ function FlowEditor() {
 
   // Settings / API keys modal state
   const [settingsOpen, setSettingsOpen] = useState<boolean>(false);
+
+  // Markdown import modal state
+  const [importModalOpen, setImportModalOpen] = useState<boolean>(false);
+
+  // Public share modal state
+  const [shareModalOpen, setShareModalOpen] = useState<boolean>(false);
 
   // Collapsible panel states
   const [leftCollapsed, setLeftCollapsed] = useState<boolean>(true);
@@ -456,6 +466,15 @@ function FlowEditor() {
     triggerToast('Canvas cleared.', 'info');
   }, [setNodes, setEdges, triggerToast]);
 
+  // Open the share modal — sharing is open to everyone, but needs a non-empty flow.
+  const handleOpenShare = useCallback(() => {
+    if (nodes.length === 0) {
+      triggerToast('Add at least one node before sharing this flow.', 'warning');
+      return;
+    }
+    setShareModalOpen(true);
+  }, [nodes.length, triggerToast]);
+
   // Open the AI modal — but only for signed-in users (the endpoint is gated).
   const handleOpenAIGenerate = useCallback(() => {
     if (!user) {
@@ -466,16 +485,16 @@ function FlowEditor() {
   }, [user, triggerToast]);
 
   // Apply an AI-generated graph: auto-layout it, save as a new flow, and load it.
-  const handleApplyGeneratedFlow = useCallback(
-    (graph: GeneratedGraph) => {
+  // Lay out a graph, save it as a NEW flow, load it. Shared by AI generate + import.
+  const applyGraphAsNewFlow = useCallback(
+    (graph: GeneratedGraph, opts: { icon?: string; defaultTitle?: string } = {}) => {
       const { nodes: laidOutNodes, edges: laidOutEdges } = layoutGeneratedFlow(graph);
 
-      const newId = `flow_${Date.now()}`;
       const newFlow: Flow = {
-        id: newId,
-        title: graph.title?.trim() || 'AI Generated Flow',
+        id: `flow_${Date.now()}`,
+        title: graph.title?.trim() || opts.defaultTitle || 'Untitled Flow',
         description: graph.description?.trim() || '',
-        icon: 'FlowArrow',
+        icon: opts.icon || 'FlowArrow',
         nodes: laidOutNodes,
         edges: laidOutEdges,
       };
@@ -494,10 +513,36 @@ function FlowEditor() {
       setSavedFlows(list);
 
       loadFlow(newFlow);
-      setAiModalOpen(false);
-      triggerToast(`AI built "${newFlow.title}" — ${laidOutNodes.length} nodes.`, 'success');
+      return { flow: newFlow, nodeCount: laidOutNodes.length };
     },
-    [loadFlow, triggerToast]
+    [loadFlow]
+  );
+
+  const handleApplyGeneratedFlow = useCallback(
+    (graph: GeneratedGraph, prompt?: string) => {
+      const { flow, nodeCount } = applyGraphAsNewFlow(graph, {
+        icon: 'FlowArrow',
+        defaultTitle: 'AI Generated Flow',
+      });
+      // Record the prompt that produced this flow, for the modal's "this flow" list.
+      if (prompt) addFlowPrompt(flow.id, prompt);
+      setAiModalOpen(false);
+      triggerToast(`AI built "${flow.title}" — ${nodeCount} nodes.`, 'success');
+    },
+    [applyGraphAsNewFlow, triggerToast]
+  );
+
+  // Apply an imported (parsed or AI-interpreted) flow.
+  const handleApplyImportedFlow = useCallback(
+    (graph: GeneratedGraph, source: string) => {
+      const { flow, nodeCount } = applyGraphAsNewFlow(graph, {
+        icon: 'FlowArrow',
+        defaultTitle: 'Imported Flow',
+      });
+      setImportModalOpen(false);
+      triggerToast(`Imported "${flow.title}" via ${source} — ${nodeCount} nodes.`, 'success');
+    },
+    [applyGraphAsNewFlow, triggerToast]
   );
 
   // Flowchart title edit
@@ -638,6 +683,18 @@ function FlowEditor() {
           onToggleFocusMode={() => setIsFocusMode(true)}
           onOpenAIGenerate={handleOpenAIGenerate}
           onOpenSettings={() => setSettingsOpen(true)}
+          onOpenImport={() => setImportModalOpen(true)}
+          onShare={handleOpenShare}
+        />
+      )}
+
+      {/* PUBLIC SHARE MODAL */}
+      {shareModalOpen && (
+        <ShareModal
+          flow={currentFlowModel}
+          flowId={currentFlowId}
+          onClose={() => setShareModalOpen(false)}
+          onToast={triggerToast}
         />
       )}
 
@@ -646,12 +703,23 @@ function FlowEditor() {
         <AIGenerateModal
           onClose={() => setAiModalOpen(false)}
           onApply={handleApplyGeneratedFlow}
+          currentFlowId={currentFlowId}
         />
       )}
 
       {/* SETTINGS / API KEYS MODAL */}
       {settingsOpen && (
         <SettingsModal onClose={() => setSettingsOpen(false)} onToast={triggerToast} />
+      )}
+
+      {/* MARKDOWN IMPORT MODAL */}
+      {importModalOpen && (
+        <ImportModal
+          onClose={() => setImportModalOpen(false)}
+          onApply={handleApplyImportedFlow}
+          isSignedIn={!!user}
+          onToast={triggerToast}
+        />
       )}
 
       {/* 2. MAIN WORKSPACE PANELS */}
@@ -805,6 +873,14 @@ function FlowEditor() {
 }
 
 export default function App() {
+  // Public read-only share route: /s/<token>. Rendered as its own minimal page,
+  // independent of the editor and its auth/sidebar chrome.
+  const shareMatch =
+    typeof window !== 'undefined' ? window.location.pathname.match(/^\/s\/([A-Za-z0-9_-]+)\/?$/) : null;
+  if (shareMatch) {
+    return <ShareViewer token={shareMatch[1]} />;
+  }
+
   return (
     <ReactFlowProvider>
       <FlowEditor />

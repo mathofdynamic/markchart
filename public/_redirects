@@ -1,0 +1,4 @@
+# Serve the SPA for public share links (/s/<token>). Pages Functions handle
+# /api/* before these rules, and real static assets are served directly, so
+# only client-side share routes fall through to index.html.
+/s/*  /index.html  200

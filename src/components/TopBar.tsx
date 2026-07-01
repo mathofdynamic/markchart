@@ -19,7 +19,9 @@ import {
   PlugsConnected,
   Code,
   SignOut,
-  Sparkle
+  Sparkle,
+  FileArrowDown,
+  ShareNetwork
 } from '@phosphor-icons/react';
 import { useAuth } from '../lib/auth';
 
@@ -66,6 +68,8 @@ interface TopBarProps {
   onToggleFocusMode?: () => void;
   onOpenAIGenerate?: () => void;
   onOpenSettings?: () => void;
+  onOpenImport?: () => void;
+  onShare?: () => void;
 }
 
 export default function TopBar({
@@ -81,6 +85,8 @@ export default function TopBar({
   onToggleFocusMode,
   onOpenAIGenerate,
   onOpenSettings,
+  onOpenImport,
+  onShare,
 }: TopBarProps) {
   const { user, ready, loading, renderButton, signOut } = useAuth();
   const googleBtnRef = useRef<HTMLDivElement>(null);
@@ -283,6 +289,30 @@ export default function TopBar({
             <Sparkle size={15} weight="fill" className="text-indigo-500 transition-transform group-hover:scale-110" />
             <span className="hidden sm:inline">Generate with AI</span>
             <span className="sm:hidden">AI</span>
+          </button>
+        )}
+
+        {/* Import from Markdown / Mermaid */}
+        {onOpenImport && (
+          <button
+            onClick={onOpenImport}
+            className="group flex items-center gap-2 rounded-full pl-2.5 pr-3.5 py-2 text-xs font-semibold border border-zinc-200 bg-white text-zinc-700 hover:text-indigo-600 hover:bg-zinc-50 hover:border-indigo-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:text-indigo-400 dark:hover:bg-zinc-800/60 dark:hover:border-indigo-900/50 shadow-sm transition-all duration-150 active:scale-95 cursor-pointer"
+            title="Import a flow from Markdown or Mermaid text/file"
+          >
+            <FileArrowDown size={15} weight="bold" className="text-zinc-400 group-hover:text-indigo-500 transition-colors" />
+            <span className="hidden sm:inline">Import</span>
+          </button>
+        )}
+
+        {/* Share the current flow as a public read-only link */}
+        {onShare && (
+          <button
+            onClick={onShare}
+            className="group flex items-center gap-2 rounded-full pl-2.5 pr-3.5 py-2 text-xs font-semibold border border-zinc-200 bg-white text-zinc-700 hover:text-indigo-600 hover:bg-zinc-50 hover:border-indigo-200 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:text-indigo-400 dark:hover:bg-zinc-800/60 dark:hover:border-indigo-900/50 shadow-sm transition-all duration-150 active:scale-95 cursor-pointer"
+            title="Share this flow as a public, view-only link"
+          >
+            <ShareNetwork size={15} weight="bold" className="text-zinc-400 group-hover:text-indigo-500 transition-colors" />
+            <span className="hidden sm:inline">Share</span>
           </button>
         )}
 

@@ -90,7 +90,7 @@ Output:
 Return ONLY the JSON object for the user's description.`;
 
 /** Strip ```json fences and surrounding noise. */
-function extractJson(text: string): string {
+export function extractJson(text: string): string {
   let t = text.trim();
   if (t.startsWith('```')) {
     t = t.replace(/^```(?:json)?/i, '').replace(/```$/i, '').trim();
@@ -98,9 +98,13 @@ function extractJson(text: string): string {
   return t;
 }
 
-/** Coerce raw model output into a clean, validated graph (or null if unusable). */
-function normalizeGraph(aiResult: any): FlowGraph | null {
-  // These models return the OpenAI chat shape; some older ones return { response }.
+/**
+ * Unwrap a Workers AI result (OpenAI chat shape `choices[0].message.content`,
+ * or legacy `{ response }`), strip code fences, and parse the JSON object it
+ * contains — falling back to a brace-regex extraction. Returns null if no
+ * usable object can be parsed. Shared by graph generation and process review.
+ */
+export function extractJsonObject(aiResult: any): any | null {
   let raw: any;
   if (aiResult && typeof aiResult === 'object') {
     const content = aiResult.choices?.[0]?.message?.content;
@@ -129,6 +133,13 @@ function normalizeGraph(aiResult: any): FlowGraph | null {
   }
 
   if (!raw || typeof raw !== 'object') return null;
+  return raw;
+}
+
+/** Coerce raw model output into a clean, validated graph (or null if unusable). */
+function normalizeGraph(aiResult: any): FlowGraph | null {
+  const raw = extractJsonObject(aiResult);
+  if (!raw) return null;
 
   const rawNodes = Array.isArray(raw.nodes) ? raw.nodes : [];
   const rawEdges = Array.isArray(raw.edges) ? raw.edges : [];
@@ -257,4 +268,78 @@ export async function runFlowGeneration(env: Env, promptRaw: unknown): Promise<G
   }
 
   return { ok: true, graph: repairGraph(graph) };
+}
+
+// ---------------------------------------------------------------------------
+// Logic review — audit a plain-language process description before generating.
+// ---------------------------------------------------------------------------
+
+const REVIEW_SYSTEM_PROMPT = `You are MarkChart's logic auditor. You are given a plain-language description of a process that will be turned into a flowchart. Your job is to check whether the description is logically sound and complete, then produce a corrected version.
+
+Look specifically for:
+- Missing or unhandled outcomes (e.g. a check with no "failure" path, a payment with no "declined" case).
+- Unbounded or unclear loops/retries (e.g. "retry" with no stop condition).
+- Ambiguous decisions (a branch whose condition isn't clear, or that doesn't say what happens for each outcome).
+- Missing start or end (no clear trigger, or no terminal outcome).
+- Contradictions or steps in an impossible order.
+
+Output a SINGLE valid JSON object ONLY — no prose, no markdown, no code fences — with this exact shape:
+{ "issues": string[], "refined": string }
+- "issues": a short list (0–8) of the concrete problems you found, each one a single clear sentence. If the description is already sound, return an empty array.
+- "refined": a rewritten version of the description that fixes every issue you listed, stays faithful to the user's intent, adds the obvious missing branches/ends, and reads as clear step-by-step instructions. Never invent unrelated steps. If nothing needs fixing, return the original description (lightly cleaned up).
+
+Return ONLY the JSON object.`;
+
+export interface ReviewResult {
+  issues: string[];
+  refined: string;
+}
+
+export type ReviewOutcome =
+  | { ok: true; review: ReviewResult }
+  | { ok: false; status: number; error: string };
+
+/** Validate the prompt, ask the model to audit its logic, return issues + a refined version. */
+export async function reviewProcess(env: Env, promptRaw: unknown): Promise<ReviewOutcome> {
+  const prompt = String(promptRaw ?? '').trim();
+  if (!prompt) {
+    return { ok: false, status: 400, error: 'Please describe the workflow you want to review.' };
+  }
+  if (prompt.length > 2000) {
+    return { ok: false, status: 400, error: 'Description is too long (max 2000 characters).' };
+  }
+
+  let aiResult: any;
+  try {
+    aiResult = await env.AI.run(AI_MODEL, {
+      messages: [
+        { role: 'system', content: REVIEW_SYSTEM_PROMPT },
+        { role: 'user', content: prompt },
+      ],
+      max_tokens: 1024,
+      temperature: 0.2,
+    });
+  } catch {
+    return {
+      ok: false,
+      status: 502,
+      error: 'The AI model could not be reached right now. Please try again in a moment.',
+    };
+  }
+
+  // Degrade gracefully: any parsing trouble falls back to "no issues, keep original".
+  const raw = extractJsonObject(aiResult);
+  const issues = Array.isArray(raw?.issues)
+    ? raw.issues
+        .map((i: any) => String(i ?? '').trim())
+        .filter(Boolean)
+        .slice(0, 12)
+        .map((i: string) => i.slice(0, 240))
+    : [];
+  const refined =
+    raw?.refined != null && String(raw.refined).trim()
+      ? String(raw.refined).slice(0, 2000)
+      : prompt;
+
+  return { ok: true, review: { issues, refined } };
 }

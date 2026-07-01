@@ -20,7 +20,8 @@ interface CustomNodeProps {
     label: string;
     description?: string;
     type?: NodeType;
-    onLabelChange: (id: string, newLabel: string) => void;
+    readOnly?: boolean;
+    onLabelChange?: (id: string, newLabel: string) => void;
     onDescriptionChange?: (id: string, newDescription: string) => void;
     onEditingStart?: (id: string) => void;
     onEditingEnd?: () => void;
@@ -49,6 +50,8 @@ export default function CustomNode({ id, selected, data, type }: CustomNodeProps
   }, [isEditing]);
 
   const handleDoubleClick = (e: React.MouseEvent) => {
+    // Read-only (shared view): never enter edit mode.
+    if (data.readOnly) return;
     // Prevent event from bubbling or panning the canvas
     e.stopPropagation();
     setIsEditing(true);
@@ -59,7 +62,7 @@ export default function CustomNode({ id, selected, data, type }: CustomNodeProps
 
   const handleSave = () => {
     setIsEditing(false);
-    data.onLabelChange(id, labelValue);
+    data.onLabelChange?.(id, labelValue);
     if (data.onDescriptionChange) {
       data.onDescriptionChange(id, descriptionValue);
     }
@@ -210,6 +213,12 @@ export default function CustomNode({ id, selected, data, type }: CustomNodeProps
   const style = stylesMap[nodeType] || stylesMap.process;
   const IconComponent = style.icon;
 
+  // Connection dots are kept mounted (so edges still anchor correctly) but made
+  // invisible and inert in the read-only shared view.
+  const handleClass = `!w-3 !h-3 !bg-zinc-300 hover:!bg-indigo-500 dark:!bg-zinc-700 dark:hover:!bg-indigo-400 !border-2 !border-white dark:!border-zinc-900 !transition-colors !duration-150 ${
+    data.readOnly ? '!opacity-0 !pointer-events-none' : ''
+  }`;
+
   // Selected State Highlights with custom accent glow/ring for each NodeType
   const selectedAccentMap: Record<NodeType, string> = {
     start: 'ring-2 ring-emerald-500 border-emerald-500 shadow-[0_12px_24px_-8px_rgba(16,185,129,0.3)] dark:ring-emerald-400 dark:border-emerald-400',
@@ -232,30 +241,10 @@ export default function CustomNode({ id, selected, data, type }: CustomNodeProps
       onDoubleClick={handleDoubleClick}
     >
       {/* 4 Connection Points (Top, Bottom, Left, Right) */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        id="t"
-        className="!w-3 !h-3 !bg-zinc-300 hover:!bg-indigo-500 dark:!bg-zinc-700 dark:hover:!bg-indigo-400 !border-2 !border-white dark:!border-zinc-900 !transition-colors !duration-150"
-      />
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        id="b"
-        className="!w-3 !h-3 !bg-zinc-300 hover:!bg-indigo-500 dark:!bg-zinc-700 dark:hover:!bg-indigo-400 !border-2 !border-white dark:!border-zinc-900 !transition-colors !duration-150"
-      />
-      <Handle
-        type="target"
-        position={Position.Left}
-        id="l"
-        className="!w-3 !h-3 !bg-zinc-300 hover:!bg-indigo-500 dark:!bg-zinc-700 dark:hover:!bg-indigo-400 !border-2 !border-white dark:!border-zinc-900 !transition-colors !duration-150"
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
-        id="r"
-        className="!w-3 !h-3 !bg-zinc-300 hover:!bg-indigo-500 dark:!bg-zinc-700 dark:hover:!bg-indigo-400 !border-2 !border-white dark:!border-zinc-900 !transition-colors !duration-150"
-      />
+      <Handle type="target" position={Position.Top} id="t" className={handleClass} />
+      <Handle type="source" position={Position.Bottom} id="b" className={handleClass} />
+      <Handle type="target" position={Position.Left} id="l" className={handleClass} />
+      <Handle type="source" position={Position.Right} id="r" className={handleClass} />
 
       {/* Double Bezel Card Frame */}
       <div className={`p-1.5 rounded-2xl border ${style.border} ${style.bg} ${style.outerRing} ring-4 transition-all duration-200`}>
@@ -328,15 +317,17 @@ export default function CustomNode({ id, selected, data, type }: CustomNodeProps
             )}
           </div>
 
-          {/* Active Prompt Guide on Hover */}
-          <div className="h-0 group-hover:h-auto overflow-hidden opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-1.5 border-t border-black/5 dark:border-white/5 mt-1 pt-2">
-            <div className="flex items-center gap-1 select-none">
-              <PencilSimple size={10} className={`${style.iconColor}`} />
-              <span className={`text-[9px] font-semibold opacity-60 ${style.text} uppercase tracking-wider`}>
-                {data.description ? 'Double-click to Edit Card' : 'Double-click to Add Description'}
-              </span>
+          {/* Active Prompt Guide on Hover (hidden in the read-only shared view) */}
+          {!data.readOnly && (
+            <div className="h-0 group-hover:h-auto overflow-hidden opacity-0 group-hover:opacity-100 transition-all duration-300 flex flex-col items-center justify-center gap-1.5 border-t border-black/5 dark:border-white/5 mt-1 pt-2">
+              <div className="flex items-center gap-1 select-none">
+                <PencilSimple size={10} className={`${style.iconColor}`} />
+                <span className={`text-[9px] font-semibold opacity-60 ${style.text} uppercase tracking-wider`}>
+                  {data.description ? 'Double-click to Edit Card' : 'Double-click to Add Description'}
+                </span>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
     </div>
