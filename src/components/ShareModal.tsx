@@ -3,6 +3,7 @@ import { ShareNetwork, X, Check, Copy, ArrowSquareOut, Eye, WarningCircle } from
 import { Flow } from '../types';
 import { createShare } from '../lib/api';
 import { loadShareRef, saveShareRef } from '../lib/shareStore';
+import { useFocusTrap } from '../lib/useFocusTrap';
 
 interface ShareModalProps {
   flow: Flow;
@@ -16,6 +17,7 @@ export default function ShareModal({ flow, flowId, onClose, onToast }: ShareModa
   const [url, setUrl] = useState('');
   const [error, setError] = useState('');
   const [copied, setCopied] = useState(false);
+  const dialogRef = useFocusTrap<HTMLDivElement>();
 
   // Publish (or update) the share as soon as the modal opens, so the link
   // always reflects the current canvas.
@@ -76,7 +78,12 @@ export default function ShareModal({ flow, flowId, onClose, onToast }: ShareModa
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl animate-in zoom-in-95 duration-150"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="share-modal-title"
+        tabIndex={-1}
+        className="w-full max-w-md rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl animate-in zoom-in-95 duration-150 focus:outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -86,7 +93,7 @@ export default function ShareModal({ flow, flowId, onClose, onToast }: ShareModa
               <ShareNetwork size={18} weight="bold" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50">Share this flow</h2>
+              <h2 id="share-modal-title" className="text-sm font-bold text-zinc-900 dark:text-zinc-50">Share this flow</h2>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 flex items-center gap-1">
                 <Eye size={12} weight="bold" /> Anyone with the link can view (read-only)
               </p>
@@ -119,11 +126,12 @@ export default function ShareModal({ flow, flowId, onClose, onToast }: ShareModa
 
           {!loading && !error && url && (
             <>
-              <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              <label htmlFor="share-public-link" className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                 Public link
               </label>
               <div className="mt-1.5 flex items-center gap-2">
                 <input
+                  id="share-public-link"
                   readOnly
                   value={url}
                   onFocus={(e) => e.target.select()}

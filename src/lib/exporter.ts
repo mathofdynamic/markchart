@@ -71,6 +71,32 @@ export function toMarkdown(flow: Flow): string {
     stepMap.set(node.id, index + 1);
   });
 
+  // Real loop-back detection. An edge u -> v is a genuine "loop back" only when v
+  // can reach u again — i.e. the edge closes a cycle. That is a property of the
+  // graph, not of BFS visitation order, so a forward edge that merely converges
+  // on an earlier-numbered step (a normal branch merge) is NOT a loop back.
+  const adjacency = new Map<string, string[]>();
+  edges.forEach(e => {
+    const list = adjacency.get(e.source);
+    if (list) list.push(e.target);
+    else adjacency.set(e.source, [e.target]);
+  });
+
+  const canReach = (from: string, to: string): boolean => {
+    const seen = new Set<string>();
+    const stack: string[] = [from];
+    while (stack.length > 0) {
+      const cur = stack.pop()!;
+      if (cur === to) return true;
+      if (seen.has(cur)) continue;
+      seen.add(cur);
+      for (const next of adjacency.get(cur) || []) {
+        if (!seen.has(next)) stack.push(next);
+      }
+    }
+    return false;
+  };
+
   // 2. Build the Markdown Output
   let md = `## Flow: ${title || 'Untitled Flow'}\n`;
   if (description && description.trim()) {
@@ -107,7 +133,7 @@ export function toMarkdown(flow: Flow): string {
           const destLabel = destNode.label.trim() || `Step ${destStep}`;
           const edgeLabel = edge.label && edge.label.trim() ? `**${edge.label.trim()}**` : '';
 
-          const isLoopBack = typeof destStep === 'number' && destStep <= stepNum;
+          const isLoopBack = canReach(edge.target, node.id);
           const transitionWord = isLoopBack ? 'loop back to' : 'proceed to';
 
           if (node.type === 'decision' || node.type === 'loop') {

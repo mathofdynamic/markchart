@@ -11,6 +11,7 @@ import {
   Terminal,
 } from '@phosphor-icons/react';
 import { ApiKey, fetchApiKeys, createApiKey, deleteApiKey } from '../lib/api';
+import { useFocusTrap } from '../lib/useFocusTrap';
 
 interface SettingsModalProps {
   onClose: () => void;
@@ -36,6 +37,7 @@ export default function SettingsModal({ onClose, onToast }: SettingsModalProps) 
   const [justCreated, setJustCreated] = useState<{ name: string; key: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useFocusTrap<HTMLDivElement>();
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://markchart.pages.dev';
 
@@ -109,7 +111,14 @@ export default function SettingsModal({ onClose, onToast }: SettingsModalProps) 
         if (e.target === e.currentTarget && !creating) onClose();
       }}
     >
-      <div className="w-full max-w-2xl max-h-[84vh] flex flex-col rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-top-2 duration-200">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="settings-modal-title"
+        tabIndex={-1}
+        className="w-full max-w-2xl max-h-[84vh] flex flex-col rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-top-2 duration-200 focus:outline-none"
+      >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-4 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
           <div className="flex items-center gap-3">
@@ -117,7 +126,7 @@ export default function SettingsModal({ onClose, onToast }: SettingsModalProps) 
               <Key size={20} weight="fill" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+              <h2 id="settings-modal-title" className="text-sm font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
                 API Keys & Settings
               </h2>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">
@@ -139,10 +148,11 @@ export default function SettingsModal({ onClose, onToast }: SettingsModalProps) 
           {/* Create */}
           <div className="flex items-end gap-2">
             <div className="flex-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
+              <label htmlFor="settings-key-name" className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 dark:text-zinc-500">
                 Create a new key
               </label>
               <input
+                id="settings-key-name"
                 ref={nameRef}
                 value={name}
                 onChange={(e) => setName(e.target.value.slice(0, 60))}

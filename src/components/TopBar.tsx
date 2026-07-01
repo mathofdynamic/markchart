@@ -233,8 +233,10 @@ export default function TopBar({
                 >
                   {title || 'Untitled Flow'}
                 </h1>
-                <button 
+                <button
                   onClick={() => setIsEditingTitle(true)}
+                  aria-label="Edit title"
+                  title="Edit title"
                   className="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-all rounded"
                 >
                   <Pencil size={12} />
@@ -265,8 +267,10 @@ export default function TopBar({
                 >
                   {description || <span className="italic opacity-60">Add a quick process description...</span>}
                 </p>
-                <button 
+                <button
                   onClick={() => setIsEditingDesc(true)}
+                  aria-label="Edit description"
+                  title="Edit description"
                   className="opacity-0 group-hover:opacity-100 p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 transition-all rounded"
                 >
                   <Pencil size={10} />

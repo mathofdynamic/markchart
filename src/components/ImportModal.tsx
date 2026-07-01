@@ -11,6 +11,7 @@ import {
 import { parseFlowInput } from '../lib/markdownImport';
 import { generateFlow } from '../lib/api';
 import { GeneratedGraph } from '../types';
+import { useFocusTrap } from '../lib/useFocusTrap';
 
 interface ImportModalProps {
   onClose: () => void;
@@ -44,6 +45,7 @@ export default function ImportModal({ onClose, onApply, isSignedIn, onToast }: I
   const [aiLoading, setAiLoading] = useState(false);
   const [showGuide, setShowGuide] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const dialogRef = useFocusTrap<HTMLDivElement>();
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -113,7 +115,14 @@ export default function ImportModal({ onClose, onApply, isSignedIn, onToast }: I
         if (e.target === e.currentTarget && !aiLoading) onClose();
       }}
     >
-      <div className="w-full max-w-xl max-h-[85vh] flex flex-col rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-top-2 duration-200">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-modal-title"
+        tabIndex={-1}
+        className="w-full max-w-xl max-h-[85vh] flex flex-col rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-2xl overflow-hidden animate-in zoom-in-95 slide-in-from-top-2 duration-200 focus:outline-none"
+      >
         {/* Header */}
         <div className="flex items-start justify-between gap-4 px-5 pt-5 pb-4 border-b border-zinc-100 dark:border-zinc-800 shrink-0">
           <div className="flex items-center gap-3">
@@ -121,7 +130,7 @@ export default function ImportModal({ onClose, onApply, isSignedIn, onToast }: I
               <FileArrowDown size={20} weight="fill" />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
+              <h2 id="import-modal-title" className="text-sm font-bold text-zinc-900 dark:text-zinc-50 tracking-tight">
                 Import a flow
               </h2>
               <p className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">

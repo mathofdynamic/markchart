@@ -1,4 +1,4 @@
-import { Env, json, getUser, generateShareToken, generateEditSecret } from '../../_lib';
+import { Env, json, getUser, generateShareToken, generateEditSecret, timingSafeEqual } from '../../_lib';
 
 // Hard cap on the serialized snapshot so a single share can't bloat the table.
 const MAX_DATA = 300_000;
@@ -42,7 +42,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
     const row = await env.DB.prepare('SELECT edit_secret FROM shares WHERE token = ?')
       .bind(body.token)
       .first<{ edit_secret: string }>();
-    if (row && row.edit_secret === body.editSecret) {
+    if (row && timingSafeEqual(row.edit_secret, body.editSecret)) {
       await env.DB.prepare(
         `UPDATE shares SET title = ?, description = ?, icon = ?, data = ?, updated_at = ?
          WHERE token = ?`,

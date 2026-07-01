@@ -140,10 +140,19 @@ export default function NodeToolbar({ onAddNodeDirectly, onClearCanvas, canClear
           return (
             <div
               key={item.type}
+              role="button"
+              tabIndex={0}
               draggable
               onDragStart={(e) => handleDragStart(e, item.type)}
               onClick={() => onAddNodeDirectly(item.type)}
-              className={`group flex flex-col items-center justify-center rounded-xl border ${item.border} ${item.bg} cursor-grab active:cursor-grabbing transition-all duration-150 select-none hover:-translate-y-[1px] hover:shadow-[0_4px_8px_-3px_rgba(0,0,0,0.05)] active:scale-[0.98] w-20 min-w-[80px] h-14 shrink-0 py-1.5 relative`}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onAddNodeDirectly(item.type);
+                }
+              }}
+              aria-label={`Add ${item.label} node`}
+              className={`group flex flex-col items-center justify-center rounded-xl border ${item.border} ${item.bg} cursor-grab active:cursor-grabbing transition-all duration-150 select-none hover:-translate-y-[1px] hover:shadow-[0_4px_8px_-3px_rgba(0,0,0,0.05)] active:scale-[0.98] w-20 min-w-[80px] h-14 shrink-0 py-1.5 relative focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500`}
               title={`${item.description} (Drag or Click to append)`}
             >
               <div className="absolute left-1 top-2 opacity-0 group-hover:opacity-40 transition-opacity text-zinc-400 pointer-events-none">

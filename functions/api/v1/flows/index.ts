@@ -65,7 +65,7 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
 
   const data = JSON.stringify({ nodes: flow.nodes, edges: flow.edges });
 
-  await env.DB.prepare(
+  const result = await env.DB.prepare(
     `INSERT INTO flows (id, user_sub, title, description, icon, data, updated_at)
      VALUES (?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(id) DO UPDATE SET
@@ -78,6 +78,17 @@ export const onRequestPost: PagesFunction<Env> = async ({ request, env }) => {
   )
     .bind(flow.id, user.sub, flow.title, flow.description, flow.icon, data, Date.now())
     .run();
+
+  // The `WHERE flows.user_sub = excluded.user_sub` guard means an id that already
+  // belongs to a *different* user resolves the conflict as a silent no-op
+  // (0 rows changed). Surface that as a real conflict instead of falsely
+  // reporting success while persisting nothing.
+  if (!result.meta?.changes) {
+    return json(
+      { error: 'A flow with this id already exists and is owned by another account.' },
+      { status: 409 },
+    );
+  }
 
   return json({ flow });
 };

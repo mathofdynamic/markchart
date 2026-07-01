@@ -46,6 +46,21 @@ function b64urlDecodeToString(s: string): string {
   return atob(t);
 }
 
+/**
+ * Constant-time comparison of two strings holding secret material (HMAC
+ * signatures, edit secrets). A plain `===`/`!==` short-circuits on the first
+ * differing byte, which leaks — via response timing — how many leading bytes an
+ * attacker guessed correctly (CWE-208). This always visits every byte.
+ */
+export function timingSafeEqual(a: string, b: string): boolean {
+  const ba = encoder.encode(a);
+  const bb = encoder.encode(b);
+  if (ba.length !== bb.length) return false;
+  let diff = 0;
+  for (let i = 0; i < ba.length; i++) diff |= ba[i] ^ bb[i];
+  return diff === 0;
+}
+
 async function hmacKey(secret: string): Promise<CryptoKey> {
   return crypto.subtle.importKey(
     'raw',
@@ -74,7 +89,7 @@ export async function verifySession(token: string, secret: string): Promise<Sess
   const expected = b64urlEncode(
     await crypto.subtle.sign('HMAC', key, encoder.encode(`${header}.${payload}`)),
   );
-  if (expected !== sig) return null;
+  if (!timingSafeEqual(expected, sig)) return null;
   try {
     const claims = JSON.parse(b64urlDecodeToString(payload));
     if (!claims.exp || claims.exp < Math.floor(Date.now() / 1000)) return null;

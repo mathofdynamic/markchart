@@ -39,6 +39,7 @@ import { validate } from './lib/validate';
 import { toMarkdown, toMermaid } from './lib/exporter';
 import { layoutGeneratedFlow } from './lib/layout';
 import { addFlowPrompt } from './lib/promptHistory';
+import { loadSavedFlows, saveSavedFlows } from './lib/flowStore';
 import { useAuth } from './lib/auth';
 import { fetchCloudFlows, saveCloudFlow, deleteCloudFlow } from './lib/api';
 
@@ -139,16 +140,7 @@ function FlowEditor() {
 
   // 1. Initial mounting: Hydrate application from LocalStorage
   useEffect(() => {
-    const cachedFlowsStr = localStorage.getItem('markchart_flows');
-    let flowsList: Flow[] = [];
-
-    if (cachedFlowsStr) {
-      try {
-        flowsList = JSON.parse(cachedFlowsStr);
-      } catch (err) {
-        console.error('Failed to parse cached flows:', err);
-      }
-    }
+    const flowsList = loadSavedFlows();
 
     if (flowsList.length > 0) {
       setSavedFlows(flowsList);
@@ -167,7 +159,7 @@ function FlowEditor() {
       };
       
       const newList = [firstFlow];
-      localStorage.setItem('markchart_flows', JSON.stringify(newList));
+      saveSavedFlows(newList);
       setSavedFlows(newList);
       loadFlow(firstFlow);
     }
@@ -243,27 +235,22 @@ function FlowEditor() {
   useEffect(() => {
     if (!currentFlowId) return;
 
-    const storedStr = localStorage.getItem('markchart_flows');
-    let flowsList: Flow[] = [];
-
-    if (storedStr) {
-      try {
-        flowsList = JSON.parse(storedStr);
-      } catch {
-        // ignore
+    // Debounce persistence: currentFlowModel gets a new identity on every
+    // node-drag frame, and writing the entire flow list to localStorage
+    // synchronously each frame janks the drag. Persist once edits settle.
+    const timer = setTimeout(() => {
+      const flowsList = loadSavedFlows();
+      const index = flowsList.findIndex((f) => f.id === currentFlowId);
+      if (index >= 0) {
+        flowsList[index] = currentFlowModel;
+      } else {
+        flowsList.push(currentFlowModel);
       }
-    }
+      saveSavedFlows(flowsList);
+      setSavedFlows(flowsList);
+    }, 400);
 
-    const index = flowsList.findIndex((f) => f.id === currentFlowId);
-    if (index >= 0) {
-      // Overwrite current entry
-      flowsList[index] = currentFlowModel;
-    } else {
-      flowsList.push(currentFlowModel);
-    }
-
-    localStorage.setItem('markchart_flows', JSON.stringify(flowsList));
-    setSavedFlows(flowsList);
+    return () => clearTimeout(timer);
   }, [currentFlowModel, currentFlowId]);
 
   // Load cloud flows whenever the user signs in; clear them on sign-out.
@@ -379,11 +366,18 @@ function FlowEditor() {
     setEditingNodeId(null);
   }, []);
 
+  // Per-node/edge `data` identity caches. The injected callbacks are stable, so
+  // an unchanged node's `data` object keeps the same reference across renders —
+  // which lets React.memo(CustomNode/CustomEdge) skip re-rendering every node on
+  // each drag frame and only re-render the one that actually changed.
+  const nodeDataCache = React.useRef<Map<string, { sig: string; data: RFNode['data'] }>>(new Map());
+  const edgeDataCache = React.useRef<Map<string, { sig: string; data: RFEdge['data'] }>>(new Map());
+
   // Inline dynamic bindings of callbacks and coordinate shifting to ReactFlow structures
   const nodesWithCallbacks = useMemo(() => {
     // Find the current active editing node to retrieve its coordinates if any
     const editingNode = nodes.find((n) => n.id === editingNodeId);
-    
+
     return nodes.map((node) => {
       let activePosition = node.position;
 
@@ -400,10 +394,14 @@ function FlowEditor() {
         }
       }
 
-      return {
-        ...node,
-        position: activePosition,
-        data: {
+      // Reuse the prior `data` reference when the semantic fields are unchanged.
+      const sig = `${(node.data?.label as string) ?? ''} ${(node.data?.description as string) ?? ''} ${node.type ?? ''}`;
+      const cached = nodeDataCache.current.get(node.id);
+      let data: RFNode['data'];
+      if (cached && cached.sig === sig) {
+        data = cached.data;
+      } else {
+        data = {
           ...node.data,
           type: node.type as NodeType,
           description: node.data?.description || '',
@@ -411,20 +409,27 @@ function FlowEditor() {
           onDescriptionChange: handleNodeDescriptionChange,
           onEditingStart: handleNodeEditingStart,
           onEditingEnd: handleNodeEditingEnd,
-        },
-      };
+        };
+        nodeDataCache.current.set(node.id, { sig, data });
+      }
+
+      return { ...node, position: activePosition, data };
     });
   }, [nodes, editingNodeId, handleNodeLabelChange, handleNodeDescriptionChange, handleNodeEditingStart, handleNodeEditingEnd]);
 
   const edgesWithCallbacks = useMemo(() => {
-    return edges.map((edge) => ({
-      ...edge,
-      type: 'custom',
-      data: {
-        ...edge.data,
-        onLabelChange: handleEdgeLabelChange,
-      },
-    }));
+    return edges.map((edge) => {
+      const sig = `${(edge.data?.label as string) ?? ''}`;
+      const cached = edgeDataCache.current.get(edge.id);
+      let data: RFEdge['data'];
+      if (cached && cached.sig === sig) {
+        data = cached.data;
+      } else {
+        data = { ...edge.data, onLabelChange: handleEdgeLabelChange };
+        edgeDataCache.current.set(edge.id, { sig, data });
+      }
+      return { ...edge, type: 'custom', data };
+    });
   }, [edges, handleEdgeLabelChange]);
 
   // New flowchart canvas initialization
@@ -439,18 +444,9 @@ function FlowEditor() {
       edges: [],
     };
 
-    const storedStr = localStorage.getItem('markchart_flows');
-    let list: Flow[] = [];
-    if (storedStr) {
-      try {
-        list = JSON.parse(storedStr);
-      } catch {
-        // ignore
-      }
-    }
-
+    const list = loadSavedFlows();
     list.unshift(newFlow);
-    localStorage.setItem('markchart_flows', JSON.stringify(list));
+    saveSavedFlows(list);
     setSavedFlows(list);
 
     // Swap active states
@@ -568,7 +564,7 @@ function FlowEditor() {
     
     setSavedFlows((prev) => {
       const updated = prev.map((f) => (f.id === flowId ? { ...f, title: newTitle } : f));
-      localStorage.setItem('markchart_flows', JSON.stringify(updated));
+      saveSavedFlows(updated);
       return updated;
     });
   }, [currentFlowId]);
@@ -577,7 +573,7 @@ function FlowEditor() {
   const handleDeleteFlow = useCallback((flowId: string) => {
     setSavedFlows((prev) => {
       const updated = prev.filter((f) => f.id !== flowId);
-      localStorage.setItem('markchart_flows', JSON.stringify(updated));
+      saveSavedFlows(updated);
 
       if (flowId === currentFlowId) {
         if (updated.length > 0) {

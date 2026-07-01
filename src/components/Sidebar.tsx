@@ -152,8 +152,17 @@ export default function Sidebar({
                   return (
                     <div
                       key={`cloud_${flow.id}`}
+                      role="button"
+                      tabIndex={0}
                       onClick={() => onLoadCloudFlow(flow.id)}
-                      className={`group relative rounded-xl border p-3 transition-all cursor-pointer ${
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onLoadCloudFlow(flow.id);
+                        }
+                      }}
+                      aria-label={`Load cloud flow ${flow.title || 'Untitled Flow'}`}
+                      className={`group relative rounded-xl border p-3 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                         isCurrent
                           ? 'bg-indigo-50/60 border-indigo-200 dark:border-indigo-500/30 dark:bg-indigo-950/30 ring-1 ring-indigo-300/30'
                           : 'bg-zinc-100 hover:bg-white dark:bg-zinc-900/30 dark:hover:bg-zinc-900 border-transparent hover:border-indigo-200/60 dark:hover:border-indigo-900/50'
@@ -212,8 +221,17 @@ export default function Sidebar({
               return (
                 <div
                   key={flow.id}
+                  role="button"
+                  tabIndex={isEditing ? -1 : 0}
                   onClick={() => !isEditing && onLoadFlow(flow.id)}
-                  className={`group relative rounded-xl border p-3 transition-all cursor-pointer ${
+                  onKeyDown={(e) => {
+                    if (!isEditing && (e.key === 'Enter' || e.key === ' ')) {
+                      e.preventDefault();
+                      onLoadFlow(flow.id);
+                    }
+                  }}
+                  aria-label={`Load flow ${flow.title || 'Untitled Flow'}`}
+                  className={`group relative rounded-xl border p-3 transition-all cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 ${
                     isCurrent
                       ? 'bg-white border-zinc-300 dark:border-zinc-700 dark:bg-zinc-900 shadow-sm ring-1 ring-zinc-300/30'
                       : 'bg-zinc-100 hover:bg-white dark:bg-zinc-900/30 dark:hover:bg-zinc-900 border-transparent hover:border-zinc-200 dark:hover:border-zinc-800'

@@ -11,7 +11,7 @@ export type CustomEdgeProps = EdgeProps<
   }>
 >;
 
-export default function CustomEdge({
+function CustomEdge({
   id,
   sourceX,
   sourceY,
@@ -136,3 +136,7 @@ export default function CustomEdge({
     </>
   );
 }
+
+// Memoized so edges re-render only when their own props change, not on every
+// canvas state update. Relies on App passing a stable `data` identity.
+export default React.memo(CustomEdge);

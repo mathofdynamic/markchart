@@ -28,7 +28,7 @@ interface CustomNodeProps {
   };
 }
 
-export default function CustomNode({ id, selected, data, type }: CustomNodeProps) {
+function CustomNode({ id, selected, data, type }: CustomNodeProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [labelValue, setLabelValue] = useState(data.label);
   const [descriptionValue, setDescriptionValue] = useState(data.description || '');
@@ -333,3 +333,8 @@ export default function CustomNode({ id, selected, data, type }: CustomNodeProps
     </div>
   );
 }
+
+// Memoized so the whole canvas doesn't re-render on every drag frame — only
+// nodes whose props actually change re-render. Relies on App passing a stable
+// `data` identity for unchanged nodes.
+export default React.memo(CustomNode);

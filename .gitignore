@@ -15,3 +15,10 @@ wrangler.toml
 
 # Never commit OAuth client secret files
 client_secret*.json
+
+# Behdad audit workspace (approval markers / suppressions) — local only
+.behdad/
+
+# Windows folder-icon cruft
+desktop.ini
+folderico-*.ico
